@@ -5,7 +5,7 @@
 (function patchFingerprinting() {
   const report = (method, detail) => {
     try {
-      browser.runtime.sendMessage({ type: "FINGERPRINT_DETECTED", payload: { method, detail, url: location.href } });
+      browser.runtime.sendMessage({ type: "FINGERPRINT_DETECTED", payload: { technique: method, detail, url: location.href } });
     } catch (e) {}
   };
 
