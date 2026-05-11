@@ -109,9 +109,9 @@ function detectCookieSyncing(url, reqDomain, pageDomain) {
 
 // ─── Cookies ─────────────────────────────────────────────────────────────────
 
-// Reseta ao COMEÇAR a navegar (não ao terminar)
 browser.webNavigation.onCommitted.addListener(function (details) {
-  if (details.frameId !== 0) return; // só frame principal
+  if (details.frameId !== 0) return;
+
   privacyState.thirdPartyRequests = [];
   privacyState.cookies            = [];
   privacyState.fingerprinting     = [];
@@ -119,30 +119,29 @@ browser.webNavigation.onCommitted.addListener(function (details) {
   privacyState.hijacking          = [];
   privacyState.cookieSyncing      = [];
   privacyState.currentDomain      = extractDomain(details.url);
-});
 
-// Lê cookies ao TERMINAR de carregar
-browser.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
-  if (changeInfo.status !== "complete" || !tab.url?.startsWith("http")) return;
-
-  const pageRootDomain = getRootDomain(extractDomain(tab.url));
-
-  browser.cookies.getAll({ url: tab.url }).then(cookies => {
-    privacyState.cookies = cookies.map(c => {
-      const cookieDomain = c.domain.replace(/^\./, "");
-      const isFirst = getRootDomain(cookieDomain) === pageRootDomain;
-      return {
-        name:         c.name,
-        domain:       c.domain,
-        isSession:    c.session,
-        isFirstParty: isFirst,
-        secure:       c.secure,
-        httpOnly:     c.httpOnly,
-        sameSite:     c.sameSite,
-        expirationDate: c.expirationDate
-      };
+  // Lê cookies com pequeno delay para dar tempo da página setar os cookies
+  setTimeout(() => {
+    browser.tabs.get(details.tabId).then(tab => {
+      if (!tab.url?.startsWith("http")) return;
+      const pageRootDomain = getRootDomain(extractDomain(tab.url));
+      browser.cookies.getAll({ url: tab.url }).then(cookies => {
+        privacyState.cookies = cookies.map(c => {
+          const cookieDomain = c.domain.replace(/^\./, "");
+          return {
+            name:         c.name,
+            domain:       c.domain,
+            isSession:    c.session,
+            isFirstParty: getRootDomain(cookieDomain) === pageRootDomain,
+            secure:       c.secure,
+            httpOnly:     c.httpOnly,
+            sameSite:     c.sameSite,
+            expirationDate: c.expirationDate
+          };
+        });
+      });
     });
-  });
+  }, 3000);
 });
 
 // ─── Mensagens do popup ───────────────────────────────────────────────────────
@@ -151,9 +150,15 @@ browser.runtime.onMessage.addListener(function (msg) {
   if (msg.type === "GET_STATE") {
     return Promise.resolve(privacyState);
   }
-  if (msg.type === "FINGERPRINT") {
-    privacyState.fingerprinting.push(msg.payload);
+
+  if (msg.type === "FINGERPRINT_DETECTED") {
+    const already = privacyState.fingerprinting
+      .some(f => f.technique === msg.payload.technique && f.detail === msg.payload.detail);
+    if (!already) {
+      privacyState.fingerprinting.push(msg.payload);
+    }
   }
+
   if (msg.type === "STORAGE_DATA") {
     privacyState.storage = msg.payload;
   }
