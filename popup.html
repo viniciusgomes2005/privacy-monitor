@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Monitor</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <div class="header-left">
+        <span class="logo-icon">🛡</span>
+        <span class="logo-text">Privacy Monitor</span>
+      </div>
+      <button id="btn-refresh" title="Atualizar">↻</button>
+    </header>
+
+    <div id="domain-bar">
+      <span id="current-domain">—</span>
+    </div>
+
+    <section id="score-section">
+      <div id="score-ring">
+        <span id="score-number">—</span>
+      </div>
+      <div id="score-meta">
+        <span id="score-label">—</span>
+        <div id="score-bar-wrap">
+          <div id="score-bar"></div>
+        </div>
+      </div>
+    </section>
+
+    <div id="sections"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
