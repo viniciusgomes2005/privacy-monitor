@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
+
+  <!-- fundo com cantos arredondados -->
+  <rect width="96" height="96" rx="12" fill="#0d1117"/>
+
+  <!-- scanline horizontal sutil -->
+  <line x1="0" y1="48" x2="96" y2="48"
+        stroke="#e8a020" stroke-width="1" stroke-opacity="0.3"/>
+
+  <!-- haste vertical do P -->
+  <rect x="24" y="18" width="11" height="60" fill="#e8a020"/>
+
+  <!-- braço superior: conecta haste ao início da curva -->
+  <rect x="24" y="18" width="33" height="10" fill="#e8a020"/>
+
+  <!-- braço médio: conecta haste ao fim da curva -->
+  <rect x="24" y="46" width="33" height="10" fill="#e8a020"/>
+
+  <!--
+    Curva do P — semicírculo de (57,23) a (57,51), raio 14
+    Centro: (57,37) · comprimento total do arco: π×14 ≈ 44px
+    dasharray "18 8 18": desenha 18px, abre gap de 8px no ponto mais à direita
+    (3 o'clock), continua 18px — gap funciona como abertura de scan
+    stroke-linecap="butt" garante junção perfeita com os braços retangulares:
+      - no início (57,23) a tangente é horizontal → stroke se estende y 18→28 = braço superior
+      - no fim   (57,51) a tangente é horizontal → stroke se estende y 46→56 = braço médio
+  -->
+  <path d="M 57 23 A 14 14 0 0 1 57 51"
+        fill="none"
+        stroke="#e8a020"
+        stroke-width="10"
+        stroke-linecap="butt"
+        stroke-dasharray="18 8 18"/>
+
+</svg>
