@@ -64,11 +64,12 @@ function calculatePrivacyScore(state) {
   score -= breakdown.thirds + breakdown.cookies + breakdown.fingerprinting + breakdown.critical;
 
   // Bônus
-  const trackers = (state.thirdPartyRequests || []).filter(r => r.isKnownTracker);
-  if (trackers.length === 0) { breakdown.bonus += 10; score += 10; }
+  const thirdPartyReqs = state.thirdPartyRequests || [];
 
-  const thirds = state.thirdPartyRequests || [];
-  if (thirds.length < 5) { breakdown.bonus += 5; score += 5; }
+  if (thirdPartyReqs.length === 0) { breakdown.bonus += 10; score += 10; }
+
+  const uniqueThirdDomains = new Set(thirdPartyReqs.map(r => r.domain));
+  if (uniqueThirdDomains.size < 5) { breakdown.bonus += 5; score += 5; }
 
   const fp = state.fingerprinting || [];
   if (fp.length === 0) { breakdown.bonus += 10; score += 10; }
@@ -321,14 +322,44 @@ function renderCookieSyncing(syncs) {
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 
+let retryCount = 0;
+
+function showWaiting(msg) {
+  document.getElementById("score-number").textContent = "…";
+  document.getElementById("current-domain").textContent = "—";
+  document.getElementById("score-label").textContent = msg;
+  document.getElementById("sections").innerHTML = "";
+}
+
 function load() {
   browser.runtime.sendMessage({ type: "GET_STATE" }).then(state => {
-    if (state) render(state);
+    const noData = !state || state.currentDomain === null || (state.thirdPartyRequests || []).length === 0;
+    if (noData) {
+      if (retryCount < 5) {
+        retryCount++;
+        showWaiting("Aguardando dados da página...");
+        setTimeout(load, 2000);
+        return;
+      }
+      retryCount = 0;
+      if (state && state.currentDomain !== null) {
+        render(state);
+        return;
+      }
+      showWaiting("Navegue para uma página para analisar.");
+      return;
+    }
+    retryCount = 0;
+    render(state);
   }).catch(() => {
     document.getElementById("score-number").textContent = "!";
     document.getElementById("score-label").textContent = "Erro ao carregar estado";
   });
 }
 
-document.getElementById("btn-refresh").addEventListener("click", load);
+document.getElementById("btn-refresh").addEventListener("click", () => {
+  retryCount = 0;
+  load();
+});
+
 load();
