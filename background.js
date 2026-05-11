@@ -147,4 +147,10 @@ browser.runtime.onMessage.addListener(function (msg) {
   if (msg.type === "GET_STATE") {
     return Promise.resolve(privacyState);
   }
+  if (msg.type === "FINGERPRINT") {
+    privacyState.fingerprinting.push(msg.payload);
+  }
+  if (msg.type === "STORAGE_DATA") {
+    privacyState.storage = msg.payload;
+  }
 });
