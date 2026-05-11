@@ -18,7 +18,7 @@ function classifyDomain(domain) {
 
 function calculatePrivacyScore(state) {
   let score = 100;
-  const breakdown = { thirds: 0, cookies: 0, fingerprinting: 0, critical: 0, bonus: 0 };
+  const breakdown = { thirds: 0, cookies: 0, fingerprinting: 0, supercookies: 0, critical: 0, bonus: 0 };
 
   // Terceiros (cap -35)
   const seenDomains = new Set();
@@ -52,16 +52,26 @@ function calculatePrivacyScore(state) {
     breakdown.fingerprinting = Math.min(30, breakdown.fingerprinting + pen);
   }
 
-  // Comportamentos críticos (sem cap)
-  const syncDomains = new Set((state.cookieSyncing || []).map(s => s.domain));
-  breakdown.critical += syncDomains.size * 20;
-
-  for (const h of state.hijacking || []) {
-    breakdown.critical += h.type === "redirect" ? 30 : 25;
+  // Supercookies (cap -40)
+  const scSeen = new Set();
+  for (const sc of state.supercookies || []) {
+    const scKey = `${sc.technique}:${sc.key}`;
+    if (scSeen.has(scKey)) continue;
+    scSeen.add(scKey);
+    breakdown.supercookies = Math.min(40, breakdown.supercookies + 20);
   }
 
+  // Comportamentos críticos (cap -50)
+  let criticalRaw = 0;
+  const syncDomains = new Set((state.cookieSyncing || []).map(s => s.domain));
+  criticalRaw += syncDomains.size * 20;
+  for (const h of state.hijacking || []) {
+    criticalRaw += h.type === "redirect" ? 30 : 25;
+  }
+  breakdown.critical = Math.min(50, criticalRaw);
+
   // Aplica penalizações
-  score -= breakdown.thirds + breakdown.cookies + breakdown.fingerprinting + breakdown.critical;
+  score -= breakdown.thirds + breakdown.cookies + breakdown.fingerprinting + breakdown.supercookies + breakdown.critical;
 
   // Bônus
   const thirdPartyReqs = state.thirdPartyRequests || [];
@@ -80,7 +90,18 @@ function calculatePrivacyScore(state) {
   );
   if (allSecure) { breakdown.bonus += 5; score += 5; }
 
-  score = Math.max(0, Math.min(100, score));
+  const preClamp = score;
+  score = Math.max(0, Math.min(100, 100 + preClamp));
+  console.log("SCORE BREAKDOWN", {
+    thirds:        `-${breakdown.thirds}`,
+    cookies:       `-${breakdown.cookies}`,
+    fingerprinting:`-${breakdown.fingerprinting}`,
+    supercookies:  `-${breakdown.supercookies}`,
+    critical:      `-${breakdown.critical} (raw: -${criticalRaw})`,
+    bonus:         `+${breakdown.bonus}`,
+    preClamp,
+    final:         score
+  });
   return { score, breakdown };
 }
 
@@ -122,6 +143,7 @@ function render(state) {
   sectionsEl.appendChild(renderCookies(state.cookies || []));
   sectionsEl.appendChild(renderFingerprinting(state.fingerprinting || []));
   sectionsEl.appendChild(renderStorage(state.storage || {}));
+  sectionsEl.appendChild(renderSupercookies(state.supercookies || []));
   sectionsEl.appendChild(renderHijacking(state.hijacking || []));
   sectionsEl.appendChild(renderCookieSyncing(state.cookieSyncing || []));
 }
@@ -318,6 +340,32 @@ function renderCookieSyncing(syncs) {
     body.appendChild(list);
   }
   return makeSection("🔗", "Cookie Syncing", syncs.length, body, syncs.length > 0);
+}
+
+function renderSupercookies(supercookies) {
+  const body = document.createElement("div");
+  if (supercookies.length === 0) {
+    body.innerHTML = '<p class="empty">Nenhum supercookie detectado</p>';
+  } else {
+    const list = document.createElement("div");
+    list.className = "item-list";
+    const techLabel = { localStorage: "localStorage", indexedDB: "indexedDB", cacheAPI: "Cache API", serviceWorker: "Service Worker" };
+    const techClass = { localStorage: "tag-warn", indexedDB: "tag-warn", cacheAPI: "tag-tracker", serviceWorker: "tag-danger" };
+    for (const sc of supercookies) {
+      const label = techLabel[sc.technique] || sc.technique;
+      const cls   = techClass[sc.technique] || "tag-warn";
+      list.innerHTML += `
+        <div class="item">
+          <div>
+            <div class="item-domain">${sc.key.slice(0, 40)}${sc.key.length > 40 ? "…" : ""}</div>
+            <div class="item-meta">${sc.detail || ""}</div>
+          </div>
+          <div class="item-tags"><span class="tag ${cls}">${label}</span></div>
+        </div>`;
+    }
+    body.appendChild(list);
+  }
+  return makeSection("🔐", "Supercookies", supercookies.length, body, supercookies.length > 0);
 }
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────

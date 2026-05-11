@@ -118,6 +118,7 @@ browser.webNavigation.onCommitted.addListener(function (details) {
   privacyState.storage            = [];
   privacyState.hijacking          = [];
   privacyState.cookieSyncing      = [];
+  privacyState.supercookies       = [];
   privacyState.currentDomain      = extractDomain(details.url);
 
   // Lê cookies com pequeno delay para dar tempo da página setar os cookies
@@ -161,5 +162,11 @@ browser.runtime.onMessage.addListener(function (msg) {
 
   if (msg.type === "STORAGE_DATA") {
     privacyState.storage = msg.payload;
+  }
+
+  if (msg.type === "SUPERCOOKIE_DETECTED") {
+    const already = privacyState.supercookies
+      .some(s => s.technique === msg.payload.technique && s.key === msg.payload.key);
+    if (!already) privacyState.supercookies.push(msg.payload);
   }
 });

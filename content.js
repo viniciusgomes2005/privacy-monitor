@@ -107,9 +107,68 @@ function collectStorage() {
   }
 }
 
-// Coleta storage após carregamento completo
+// ─── Supercookies ────────────────────────────────────────────────────────────
+
+function looksLikeTrackingId(str) {
+  if (!str || str.length < 20) return false;
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)) return true;
+  if (/^[0-9a-f]{20,}$/i.test(str)) return true;
+  if (/^[A-Za-z0-9_\-]{32,}$/.test(str)) return true;
+  return false;
+}
+
+function detectSupercookies() {
+  // localStorage: heurística de alta entropia nos valores
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      const val = localStorage.getItem(key) || "";
+      if (looksLikeTrackingId(val)) {
+        browser.runtime.sendMessage({ type: "SUPERCOOKIE_DETECTED",
+          payload: { technique: "localStorage", key, detail: val.slice(0, 40) } });
+      }
+    }
+  } catch (e) {}
+
+  // IndexedDB: nomes de banco com alta entropia
+  try {
+    if (typeof indexedDB !== "undefined" && indexedDB.databases) {
+      indexedDB.databases().then(dbs => {
+        for (const db of dbs) {
+          if (looksLikeTrackingId(db.name)) {
+            browser.runtime.sendMessage({ type: "SUPERCOOKIE_DETECTED",
+              payload: { technique: "indexedDB", key: db.name, detail: location.hostname } });
+          }
+        }
+      }).catch(() => {});
+    }
+  } catch (e) {}
+
+  // Cache API: qualquer cache registrado
+  if ("caches" in self) {
+    caches.keys().then(names => {
+      for (const name of names) {
+        browser.runtime.sendMessage({ type: "SUPERCOOKIE_DETECTED",
+          payload: { technique: "cacheAPI", key: name, detail: location.hostname } });
+      }
+    }).catch(() => {});
+  }
+
+  // Service Worker: qualquer registro ativo
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.getRegistrations().then(regs => {
+      for (const reg of regs) {
+        browser.runtime.sendMessage({ type: "SUPERCOOKIE_DETECTED",
+          payload: { technique: "serviceWorker", key: reg.scope, detail: location.hostname } });
+      }
+    }).catch(() => {});
+  }
+}
+
+// Coleta storage e detecta supercookies após carregamento completo
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", collectStorage);
+  document.addEventListener("DOMContentLoaded", () => { collectStorage(); detectSupercookies(); });
 } else {
   collectStorage();
+  detectSupercookies();
 }

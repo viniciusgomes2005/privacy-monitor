@@ -7,5 +7,6 @@ var privacyState = {
   storage: [],
   hijacking: [],
   cookieSyncing: [],
+  supercookies: [],
   currentDomain: null
 };
