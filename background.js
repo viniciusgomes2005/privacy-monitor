@@ -109,32 +109,36 @@ function detectCookieSyncing(url, reqDomain, pageDomain) {
 
 // ─── Cookies ─────────────────────────────────────────────────────────────────
 
+// Reseta ao COMEÇAR a navegar (não ao terminar)
+browser.webNavigation.onCommitted.addListener(function (details) {
+  if (details.frameId !== 0) return; // só frame principal
+  privacyState.thirdPartyRequests = [];
+  privacyState.cookies            = [];
+  privacyState.fingerprinting     = [];
+  privacyState.storage            = [];
+  privacyState.hijacking          = [];
+  privacyState.cookieSyncing      = [];
+  privacyState.currentDomain      = extractDomain(details.url);
+});
+
+// Lê cookies ao TERMINAR de carregar
 browser.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
   if (changeInfo.status !== "complete" || !tab.url?.startsWith("http")) return;
 
-  // Limpa estado ao navegar para nova página
-  privacyState.thirdPartyRequests = [];
-  privacyState.cookies = [];
-  privacyState.fingerprinting = [];
-  privacyState.storage = [];
-  privacyState.hijacking = [];
-  privacyState.cookieSyncing = [];
-  privacyState.currentDomain = extractDomain(tab.url);
-
-  const pageRootDomain = getRootDomain(privacyState.currentDomain);
+  const pageRootDomain = getRootDomain(extractDomain(tab.url));
 
   browser.cookies.getAll({ url: tab.url }).then(cookies => {
     privacyState.cookies = cookies.map(c => {
       const cookieDomain = c.domain.replace(/^\./, "");
       const isFirst = getRootDomain(cookieDomain) === pageRootDomain;
       return {
-        name:       c.name,
-        domain:     c.domain,
-        isSession:  c.session,
+        name:         c.name,
+        domain:       c.domain,
+        isSession:    c.session,
         isFirstParty: isFirst,
-        secure:     c.secure,
-        httpOnly:   c.httpOnly,
-        sameSite:   c.sameSite,
+        secure:       c.secure,
+        httpOnly:     c.httpOnly,
+        sameSite:     c.sameSite,
         expirationDate: c.expirationDate
       };
     });
